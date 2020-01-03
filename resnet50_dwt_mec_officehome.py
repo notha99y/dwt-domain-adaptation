@@ -3,35 +3,32 @@ from __future__ import print_function
 File modified from:
 	https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
 """
+
+
+import torch.utils.model_zoo as model_zoo
+from torch.optim import lr_scheduler
+import torch.optim as optim
+from torchvision import datasets, models, transforms
+import torchvision
+import torch.nn.functional as F
+import torch.nn as nn
+import torch
 import os
 import sys
+sys.path.append('utils')
+import consensus_loss
+import whitening
+import batch_norm
+import folder
+
 import cv2
 import tqdm
+import pathlib
 import argparse
 import numpy as np
 import scipy.io as sio
 
 from PIL import Image
-
-sys.path.append('utils')
-
-import folder
-import batch_norm
-import whitening
-import consensus_loss
-
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision
-from torchvision import datasets, models, transforms
-
-import torch.optim as optim
-from torch.optim import lr_scheduler
-import torch.utils.model_zoo as model_zoo
-
-
 
 
 
@@ -405,7 +402,7 @@ class ResNet(nn.Module):
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
                 conv1x1(self.inplanes, planes * block.expansion, stride),
-                #nn.BatchNorm2d(planes * block.expansion),
+                # nn.BatchNorm2d(planes * block.expansion),
             )
 
         layers = []
@@ -486,16 +483,16 @@ def eval_pass_collect_stats(args, model, device, target_test_loader):
 def train_infinite_collect_stats(args, model, device, source_train_loader,
                                  target_train_loader, optimizer, lambda_mec_loss,
                                  target_test_loader):
-
+    
     source_iter = iter(source_train_loader)
     target_iter = iter(target_train_loader)
-
+    
     exp_lr_scheduler = lr_scheduler.MultiStepLR(
         optimizer, milestones=[6000], gamma=0.1)
+    best_test_loss = 1e6
 
-    for i in tqdm.tqdm(args.num_iters):
+    for i in tqdm.tqdm(range(args.num_iters)):
         model.train()
-
         exp_lr_scheduler.step()
         try:
             source_data, source_y = next(source_iter)
@@ -535,9 +532,23 @@ def train_infinite_collect_stats(args, model, device, source_train_loader,
                 i, args.num_iters, cls_loss.item(), mec_loss.item()
             ))
 
-        if (i + 1) % args.check_acc_step == 0:
-            test(args, model, device, target_test_loader)
-
+        test_loss, test_acc = test(args, model, device, target_test_loader)
+        if best_test_loss < test_loss:
+            weight_name = f'model_{i}_{test_loss:.2f}.pth'
+            PATH = pathlib.Path.cwd() / 'weights' / weight_name
+            best_test_loss = test_loss
+            print(f'Epoch: {i}. New best test loss: {best_test_loss}')
+            torch.save({
+				'epoch': i,
+				'model_state_dict': model.state_dict(),
+				'optimizer_state_dict': optimizer.state_dict(),
+				'cls_loss': cls_loss.item(),
+				'mec_loss': mec_loss.item(),
+				'test_loss': test_loss
+			}, PATH)
+		# if (i + 1) % args.check_acc_step == 0:
+			# pass
+    
     print("Training is complete...")
     print("Running a bunch of forward passes to estimate the population statistics of target...")
     eval_pass_collect_stats(args, model, device, target_test_loader)
@@ -634,7 +645,7 @@ def main():
                         help='Running momentum for domain statistics(default: 0.1)')
     parser.add_argument('--lambda_mec_loss', type=float, default=0.1,
                         help='Value of lambda for the entropy loss (default: 0.1)')
-    parser.add_argument('--log_interval', type=int, default=10,
+    parser.add_argument('--log_interval', type=int, default=100,
                         help='how many batches to wait before logging training status')
     parser.add_argument('--seed', type=int, default=1,
                         help='random seed (default: 1)')
