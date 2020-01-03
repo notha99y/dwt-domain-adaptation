@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  dwt-da:
+    build: ./docker_files
+    image: notha99y/dwtda:1.0
+    volumes:
+      - .:/workspace
+      - /media/dh/New Volume/Datasets/OfficeHomeDataset_10072016:/dataset
+    ports:
+      - 8888:8888

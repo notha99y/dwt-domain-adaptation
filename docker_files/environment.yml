@@ -1,0 +1,21 @@
+name: dwt_da
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+dependencies:
+  - python=3.7
+  - pip
+  - numpy
+  - matplotlib
+  - pytorch
+  - torchvision
+  - opencv
+  - pillow
+  - scipy
+  - pip:
+      - tqdm
+      - jupyter
+      - pandas
+      - sklearn
+      - seaborn
