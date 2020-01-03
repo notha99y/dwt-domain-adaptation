@@ -6,6 +6,7 @@ File modified from:
 import os
 import sys
 import cv2
+import tqdm
 import argparse
 import numpy as np
 import scipy.io as sio
@@ -492,7 +493,7 @@ def train_infinite_collect_stats(args, model, device, source_train_loader,
     exp_lr_scheduler = lr_scheduler.MultiStepLR(
         optimizer, milestones=[6000], gamma=0.1)
 
-    for i in range(args.num_iters):
+    for i in tqdm.tqdm(args.num_iters):
         model.train()
 
         exp_lr_scheduler.step()
@@ -563,7 +564,7 @@ def test(args, model, device, target_test_loader):
             test_loss, correct, len(target_test_loader.dataset),
             100. * correct / len(target_test_loader.dataset)))
 
-    return 100. * correct / len(target_test_loader.dataset)
+    return test_loss, 100. * correct / len(target_test_loader.dataset)
 
 
 def compute_bn_stats(state_dict):
@@ -620,7 +621,7 @@ def main():
                         default=224, help='size of the cropped image')
     parser.add_argument('--num_iters', type=int, default=10000,
                         help='number of iterations to train (default: 10000)')
-    parser.add_argument('--check_acc_step', type=int, default=100,
+    parser.add_argument('--check_acc_step', type=int, default=1,
                         help='number of iterations steps to check validation accuracy (default: 10)')
     parser.add_argument('--lr_change_step', type=int, default=1000)
     parser.add_argument('--lr', type=float, default=1e-2,
