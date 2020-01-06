@@ -68,6 +68,8 @@ def train_infinite_collect_stats(args, model, device, source_train_loader,
     exp_lr_scheduler = lr_scheduler.MultiStepLR(
         optimizer, milestones=[6000], gamma=0.1)
     best_test_loss = 1e6
+    
+    print('-'*88)
 
     for epoch in range(args.num_iters):
         
@@ -75,8 +77,11 @@ def train_infinite_collect_stats(args, model, device, source_train_loader,
         for i , data in enumerate(tqdm.tqdm(source_train_loader)):
             source_data, source_y = data
 
-            target_data, target_data_dup, _ = next(target_iter)
-    
+            try:
+                target_data, target_data_dup, _ = next(target_iter)
+            except:
+                target_iter = iter(target_train_loader)
+                target_data, target_data_dup, _ = next(target_iter)
             # concat the source and target mini-batches
             data = torch.cat((source_data, target_data, target_data_dup), dim=0)
             data, source_y = data.to(device), source_y.to(device)
@@ -99,8 +104,7 @@ def train_infinite_collect_stats(args, model, device, source_train_loader,
             loss.backward()
             optimizer.step()
         
-        print('EPOCH: ', epoch)
-        print('-'*88)
+
         writer.add_scalar('train/cls_loss', cls_loss.item(), epoch)
         writer.add_scalar('train/mec_loss', mec_loss.item(), epoch)
         writer.add_scalar('train/loss', loss, epoch)
