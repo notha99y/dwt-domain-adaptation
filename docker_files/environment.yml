@@ -19,3 +19,4 @@ dependencies:
       - pandas
       - sklearn
       - seaborn
+      - tensorboardX
