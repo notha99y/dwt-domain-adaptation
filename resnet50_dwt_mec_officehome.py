@@ -533,7 +533,7 @@ def train_infinite_collect_stats(args, model, device, source_train_loader,
             ))
 
         test_loss, test_acc = test(args, model, device, target_test_loader)
-        if best_test_loss < test_loss:
+        if  test_loss < best_test_loss:
             weight_name = f'model_{i}_{test_loss:.2f}.pth'
             PATH = pathlib.Path.cwd() / 'weights' / weight_name
             best_test_loss = test_loss
