@@ -6,17 +6,21 @@ channels:
 dependencies:
   - python=3.7
   - pip
-  - numpy
-  - matplotlib
   - pytorch
   - torchvision
+  - cudatoolkit=10.1
+  - cudnn
+  - numpy
+  - matplotlib
+
   - opencv
   - pillow
   - scipy
+  - jupyter
+  - notebook
   - tensorflow
   - pip:
       - tqdm
-      - jupyter
       - pandas
       - sklearn
       - seaborn
