@@ -68,6 +68,7 @@ def train_infinite_collect_stats(args, model, device, source_train_loader,
     exp_lr_scheduler = lr_scheduler.MultiStepLR(
         optimizer, milestones=[6000], gamma=0.1)
     best_test_loss = 1e6
+    best_acc = 0
     
     print('-'*88)
 
@@ -120,11 +121,11 @@ def train_infinite_collect_stats(args, model, device, source_train_loader,
         writer.add_scalar('test/loss', test_loss, epoch)
         writer.add_scalar('test/acc', test_acc, epoch)
 
-        if test_loss <  best_test_loss:
-            weight_name = f'model_{epoch}_{test_loss:.2f}.pth'
+        if test_acc >  best_acc:
+            weight_name = f'model_{epoch}_{test_loss:.2f}_{test_acc:.2f}.pth'
             PATH = pathlib.Path.cwd() / 'weights' / weight_name
-            best_test_loss = test_loss
-            print(f'Epoch: {epoch}. New best test loss: {best_test_loss}')
+            best_acc = test_acc
+            print(f'Epoch: {epoch}. New best acc loss: {best_acc}')
             torch.save({
 				'epoch': epoch,
 				'model_state_dict': model.state_dict(),
