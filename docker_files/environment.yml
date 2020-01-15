@@ -12,7 +12,6 @@ dependencies:
   - cudnn
   - numpy
   - matplotlib
-
   - opencv
   - pillow
   - scipy
