@@ -24,7 +24,8 @@ import utils.folder
 
 from model import ResNet, Bottleneck
 
-def resnet50(weights_path, device):
+
+def resnet50(weights_path, device, rt=True):
 
     state_dict_ = torch.load(weights_path, map_location=device)
     state_dict_model = state_dict_['state_dict']
@@ -39,12 +40,14 @@ def resnet50(weights_path, device):
 
     return model
 
+
 def resume_training(weights_path, device):
     '''
     To resume training
     '''
     checkpoint = torch.load(weights_path, map_location=device)
-    model = ResNet(Bottleneck, [3, 4, 6, 3], checkpoint['model_state_dict'])
+    model = ResNet(
+        Bottleneck, [3, 4, 6, 3], checkpoint['model_state_dict'], rt=True)
     model.load_state_dict(checkpoint['model_state_dict'], strict=False)
     optimizer = optimizer = optim.SGD(model.parameters())
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -53,6 +56,7 @@ def resume_training(weights_path, device):
     mec_loss = checkpoint['mec_loss']
     test_loss = checkpoint['test_loss']
     return model, optimizer, epoch, cls_loss, mec_loss, test_loss
+
 
 def eval_pass_collect_stats(args, model, device, target_test_loader):
     # Run a bunch of forward passes to collect the target statistics before evaluating on the test set
@@ -69,22 +73,22 @@ def eval_pass_collect_stats(args, model, device, target_test_loader):
 
 def train_infinite_collect_stats(args, model, device, source_train_loader,
                                  target_train_loader, optimizer, lambda_mec_loss,
-                                 target_test_loader, base_epoch = 0):
+                                 target_test_loader, base_epoch=0):
     writer = SummaryWriter()
     # source_iter = iter(source_train_loader)
     target_iter = iter(target_train_loader)
-    
+
     exp_lr_scheduler = lr_scheduler.MultiStepLR(
         optimizer, milestones=[6000], gamma=0.1)
     best_test_loss = 1e6
     best_acc = 0
-    
+
     print('-'*88)
 
     for epoch in range(args.num_iters):
-        
-        model.train()    
-        for i , data in enumerate(tqdm.tqdm(source_train_loader)):
+
+        model.train()
+        for i, data in enumerate(tqdm.tqdm(source_train_loader)):
             source_data, source_y = data
 
             try:
@@ -93,7 +97,8 @@ def train_infinite_collect_stats(args, model, device, source_train_loader,
                 target_iter = iter(target_train_loader)
                 target_data, target_data_dup, _ = next(target_iter)
             # concat the source and target mini-batches
-            data = torch.cat((source_data, target_data, target_data_dup), dim=0)
+            data = torch.cat(
+                (source_data, target_data, target_data_dup), dim=0)
             data, source_y = data.to(device), source_y.to(device)
 
             optimizer.zero_grad()
@@ -110,15 +115,15 @@ def train_infinite_collect_stats(args, model, device, source_train_loader,
 
             loss = cls_loss + mec_loss
 
-        
             loss.backward()
             optimizer.step()
-        
 
-        writer.add_scalar('train/cls_loss', cls_loss.item(), base_epoch + epoch)
-        writer.add_scalar('train/mec_loss', mec_loss.item(), base_epoch + epoch)
+        writer.add_scalar('train/cls_loss', cls_loss.item(),
+                          base_epoch + epoch)
+        writer.add_scalar('train/mec_loss', mec_loss.item(),
+                          base_epoch + epoch)
         writer.add_scalar('train/loss', loss, base_epoch + epoch)
-        
+
         exp_lr_scheduler.step()
 
         if epoch % args.log_interval == 0:
@@ -130,27 +135,30 @@ def train_infinite_collect_stats(args, model, device, source_train_loader,
         writer.add_scalar('test/loss', test_loss, base_epoch + epoch)
         writer.add_scalar('test/acc', test_acc, base_epoch + epoch)
 
-        if test_acc >  best_acc:
+        if test_acc > best_acc:
             weight_name = f'model_{base_epoch + epoch}_{test_loss:.2f}_{test_acc:.2f}.pth'
             PATH = pathlib.Path.cwd() / 'weights' / weight_name
             best_acc = test_acc
-            print(f'Epoch: {base_epoch + epoch}. New best acc loss: {best_acc}')
+            print(
+                f'Epoch: {base_epoch + epoch}. New best acc loss: {best_acc}')
             torch.save({
-				'epoch': base_epoch + epoch,
-				'model_state_dict': model.state_dict(),
-				'optimizer_state_dict': optimizer.state_dict(),
-				'cls_loss': cls_loss.item(),
-				'mec_loss': mec_loss.item(),
-				'test_loss': test_loss
-			}, PATH)
-		# if (i + 1) % args.check_acc_step == 0:
-			# pass
-    
+                'epoch': base_epoch + epoch,
+                'full_model': model,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'cls_loss': cls_loss.item(),
+                'mec_loss': mec_loss.item(),
+                'test_loss': test_loss
+            }, PATH)
+            # if (i + 1) % args.check_acc_step == 0:
+            # pass
+
     print("Training is complete...")
     print("Running a bunch of forward passes to estimate the population statistics of target...")
     eval_pass_collect_stats(args, model, device, target_test_loader)
     print("Finally computing the precision on the test set...")
     test(args, model, device, target_test_loader)
+
 
 def correct_count(model, device, data_loader):
     model.eval()
@@ -181,6 +189,7 @@ def test(args, model, device, target_test_loader):
             100. * correct / len(target_test_loader.dataset)))
 
     return test_loss, 100. * correct / len(target_test_loader.dataset)
+
 
 def _random_affine_augmentation(x):
     M = np.float32([[1 + np.random.normal(0.0, 0.1), np.random.normal(0.0, 0.1), 0],
@@ -237,7 +246,7 @@ def main():
                         help='how many batches to wait before logging training status')
     parser.add_argument('--seed', type=int, default=1,
                         help='random seed (default: 1)')
-    parser.add_argument('-rt', '--resume_training', action=store_true, 
+    parser.add_argument('-rt', '--resume_training', action='store_true',
                         help='For resume training from a give checkpoint')
 
     args = parser.parse_args()
@@ -271,14 +280,14 @@ def main():
 
     # train data sets
     source_dataset = utils.folder.ImageFolder(root=args.s_dset_path,
-                                        transform=data_transform)
+                                              transform=data_transform)
     target_dataset = utils.folder.ImageFolder(root=args.t_dset_path,
-                                        transform=data_transform,
-                                        transform_aug=data_transform_dup)
+                                              transform=data_transform,
+                                              transform_aug=data_transform_dup)
 
     # test data sets
     target_dataset_test = utils.folder.ImageFolder(root=args.t_dset_path,
-                                             transform=data_transform)
+                                                   transform=data_transform)
 
     # '''''''''''' Train loaders ''''''''''''''' #
     source_trainloader = torch.utils.data.DataLoader(source_dataset,
@@ -300,12 +309,15 @@ def main():
                                                     num_workers=args.num_workers)
 
     if args.resume_training:
-        
-        model, optimizer, base_epoch, base_cls_loss, base_mec_loss, base_test_loss = resume_training(args.resnet_path, device)
+
+        model, optimizer, base_epoch, base_cls_loss, base_mec_loss, base_test_loss = resume_training(
+            args.resnet_path, device)
         model.to(device)
-        print(f'Resuming Training from Epoch: {base_epoch} \ncls_loss: {base_cls_loss} \nmec_loss: {base_mec_loss} \ntest_loss: {base_test_loss} \n ')
+        print(
+            f'Resuming Training from Epoch: {base_epoch} \ncls_loss: {base_cls_loss} \nmec_loss: {base_mec_loss} \ntest_loss: {base_test_loss} \n ')
     else:
-        model = resnet50(args.resnet_path, device).to(device)
+        model = resnet50(args.resnet_path, device,
+                         args.resume_training).to(device)
 
         final_layer_params = []
         rest_of_the_net_params = []

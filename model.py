@@ -3,6 +3,8 @@ import torch.nn as nn
 
 import utils.batch_norm
 import utils.whitening
+
+
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
@@ -11,6 +13,7 @@ def conv3x3(in_planes, out_planes, stride=1):
 def conv1x1(in_planes, out_planes, stride=1):
     """1x1 convolution"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+
 
 def compute_bn_stats(state_dict):
     # state_dict = state_dict = torch.load(path) #'/home/sroy/.torch/models/resnet50-19c8e357.pth'
@@ -26,7 +29,8 @@ def compute_bn_stats(state_dict):
     bn_dict = {k: v for k, v in state_dict.items() if k in bn_key_names}
 
     return bn_dict
-    
+
+
 class whitening_scale_shift(nn.Module):
     def __init__(self, planes, group_size, running_mean, running_variance, track_running_stats=True, affine=True):
         super(whitening_scale_shift, self).__init__()
@@ -38,10 +42,10 @@ class whitening_scale_shift(nn.Module):
         self.running_variance = running_variance
 
         self.wh = utils.whitening.WTransform2d(self.planes,
-                                         self.group_size,
-                                         running_m=self.running_mean,
-                                         running_var=self.running_variance,
-                                         track_running_stats=self.track_running_stats)
+                                               self.group_size,
+                                               running_m=self.running_mean,
+                                               running_var=self.running_variance,
+                                               track_running_stats=self.track_running_stats)
         if self.affine:
             self.gamma = nn.Parameter(torch.ones(self.planes, 1, 1))
             self.beta = nn.Parameter(torch.zeros(self.planes, 1, 1))
@@ -51,12 +55,13 @@ class whitening_scale_shift(nn.Module):
         if self.affine:
             out = out * self.gamma + self.beta
         return out
+# class Bottleneck_rt(nn.Module):
 
 
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes, layer, sub_layer, bn_dict, group_size=4, stride=1, downsample=None):
+    def __init__(self, inplanes, planes, layer, sub_layer, bn_dict, group_size=4, stride=1, downsample=None, rt = False):
         super(Bottleneck, self).__init__()
         self.expansion = 4
         self.conv1 = conv1x1(inplanes, planes)
@@ -88,23 +93,23 @@ class Bottleneck(nn.Module):
                 bn_dict['layer' + str(layer) + '.' + str(sub_layer) + '.bn1.beta'])
         else:
             self.bns1 = utils.batch_norm.BatchNorm2d(num_features=planes,
-                                               running_m=bn_dict['layer' + str(layer) + '.' + str(
-                                                   sub_layer) + '.bn1.running_mean'],
-                                               running_v=bn_dict['layer' + str(layer) + '.' + str(
-                                                   sub_layer) + '.bn1.running_var'],
-                                               affine=False)
+                                                     running_m=bn_dict['layer' + str(layer) + '.' + str(
+                                                         sub_layer) + '.bn1.running_mean'],
+                                                     running_v=bn_dict['layer' + str(layer) + '.' + str(
+                                                         sub_layer) + '.bn1.running_var'],
+                                                     affine=False)
             self.bnt1 = utils.batch_norm.BatchNorm2d(num_features=planes,
-                                               running_m=bn_dict['layer' + str(layer) + '.' + str(
-                                                   sub_layer) + '.bn1.running_mean'],
-                                               running_v=bn_dict['layer' + str(layer) + '.' + str(
-                                                   sub_layer) + '.bn1.running_var'],
-                                               affine=False)
+                                                     running_m=bn_dict['layer' + str(layer) + '.' + str(
+                                                         sub_layer) + '.bn1.running_mean'],
+                                                     running_v=bn_dict['layer' + str(layer) + '.' + str(
+                                                         sub_layer) + '.bn1.running_var'],
+                                                     affine=False)
             self.bnt1_aug = utils.batch_norm.BatchNorm2d(num_features=planes,
-                                                   running_m=bn_dict['layer' + str(layer) + '.' + str(
-                                                       sub_layer) + '.bn1.running_mean'],
-                                                   running_v=bn_dict['layer' + str(layer) + '.' + str(
-                                                       sub_layer) + '.bn1.running_var'],
-                                                   affine=False)
+                                                         running_m=bn_dict['layer' + str(layer) + '.' + str(
+                                                             sub_layer) + '.bn1.running_mean'],
+                                                         running_v=bn_dict['layer' + str(layer) + '.' + str(
+                                                             sub_layer) + '.bn1.running_var'],
+                                                         affine=False)
             self.gamma1 = nn.Parameter(
                 bn_dict['layer' + str(layer) + '.' + str(sub_layer) + '.bn1.weight'].view(-1, 1, 1))
             self.beta1 = nn.Parameter(
@@ -139,23 +144,23 @@ class Bottleneck(nn.Module):
                 bn_dict['layer' + str(layer) + '.' + str(sub_layer) + '.bn2.beta'])
         else:
             self.bns2 = utils.batch_norm.BatchNorm2d(num_features=planes,
-                                               running_m=bn_dict['layer' + str(layer) + '.' + str(
-                                                   sub_layer) + '.bn2.running_mean'],
-                                               running_v=bn_dict['layer' + str(layer) + '.' + str(
-                                                   sub_layer) + '.bn2.running_var'],
-                                               affine=False)
+                                                     running_m=bn_dict['layer' + str(layer) + '.' + str(
+                                                         sub_layer) + '.bn2.running_mean'],
+                                                     running_v=bn_dict['layer' + str(layer) + '.' + str(
+                                                         sub_layer) + '.bn2.running_var'],
+                                                     affine=False)
             self.bnt2 = utils.batch_norm.BatchNorm2d(num_features=planes,
-                                               running_m=bn_dict['layer' + str(layer) + '.' + str(
-                                                   sub_layer) + '.bn2.running_mean'],
-                                               running_v=bn_dict['layer' + str(layer) + '.' + str(
-                                                   sub_layer) + '.bn2.running_var'],
-                                               affine=False)
+                                                     running_m=bn_dict['layer' + str(layer) + '.' + str(
+                                                         sub_layer) + '.bn2.running_mean'],
+                                                     running_v=bn_dict['layer' + str(layer) + '.' + str(
+                                                         sub_layer) + '.bn2.running_var'],
+                                                     affine=False)
             self.bnt2_aug = utils.batch_norm.BatchNorm2d(num_features=planes,
-                                                   running_m=bn_dict['layer' + str(layer) + '.' + str(
-                                                       sub_layer) + '.bn2.running_mean'],
-                                                   running_v=bn_dict['layer' + str(layer) + '.' + str(
-                                                       sub_layer) + '.bn2.running_var'],
-                                                   affine=False)
+                                                         running_m=bn_dict['layer' + str(layer) + '.' + str(
+                                                             sub_layer) + '.bn2.running_mean'],
+                                                         running_v=bn_dict['layer' + str(layer) + '.' + str(
+                                                             sub_layer) + '.bn2.running_var'],
+                                                         affine=False)
             self.gamma2 = nn.Parameter(
                 bn_dict['layer' + str(layer) + '.' + str(sub_layer) + '.bn2.weight'].view(-1, 1, 1))
             self.beta2 = nn.Parameter(
@@ -190,23 +195,23 @@ class Bottleneck(nn.Module):
                 bn_dict['layer' + str(layer) + '.' + str(sub_layer) + '.bn3.beta'])
         else:
             self.bns3 = utils.batch_norm.BatchNorm2d(num_features=planes * self.expansion,
-                                               running_m=bn_dict['layer' + str(layer) + '.' + str(
-                                                   sub_layer) + '.bn3.running_mean'],
-                                               running_v=bn_dict['layer' + str(layer) + '.' + str(
-                                                   sub_layer) + '.bn3.running_var'],
-                                               affine=False)
+                                                     running_m=bn_dict['layer' + str(layer) + '.' + str(
+                                                         sub_layer) + '.bn3.running_mean'],
+                                                     running_v=bn_dict['layer' + str(layer) + '.' + str(
+                                                         sub_layer) + '.bn3.running_var'],
+                                                     affine=False)
             self.bnt3 = utils.batch_norm.BatchNorm2d(num_features=planes * self.expansion,
-                                               running_m=bn_dict['layer' + str(layer) + '.' + str(
-                                                   sub_layer) + '.bn3.running_mean'],
-                                               running_v=bn_dict['layer' + str(layer) + '.' + str(
-                                                   sub_layer) + '.bn3.running_var'],
-                                               affine=False)
+                                                     running_m=bn_dict['layer' + str(layer) + '.' + str(
+                                                         sub_layer) + '.bn3.running_mean'],
+                                                     running_v=bn_dict['layer' + str(layer) + '.' + str(
+                                                         sub_layer) + '.bn3.running_var'],
+                                                     affine=False)
             self.bnt3_aug = utils.batch_norm.BatchNorm2d(num_features=planes * self.expansion,
-                                                   running_m=bn_dict['layer' + str(layer) + '.' + str(
-                                                       sub_layer) + '.bn3.running_mean'],
-                                                   running_v=bn_dict['layer' + str(layer) + '.' + str(
-                                                       sub_layer) + '.bn3.running_var'],
-                                                   affine=False)
+                                                         running_m=bn_dict['layer' + str(layer) + '.' + str(
+                                                             sub_layer) + '.bn3.running_mean'],
+                                                         running_v=bn_dict['layer' + str(layer) + '.' + str(
+                                                             sub_layer) + '.bn3.running_var'],
+                                                         affine=False)
             self.gamma3 = nn.Parameter(
                 bn_dict['layer' + str(layer) + '.' + str(sub_layer) + '.bn3.weight'].view(-1, 1, 1))
             self.beta3 = nn.Parameter(
@@ -244,23 +249,23 @@ class Bottleneck(nn.Module):
                     bn_dict['layer' + str(layer) + '.0.downsample_bn.beta'])
             else:
                 self.downsample_bns = utils.batch_norm.BatchNorm2d(num_features=planes * self.expansion,
-                                                             running_m=bn_dict['layer' + str(
-                                                                 layer) + '.0.downsample_bn.running_mean'],
-                                                             running_v=bn_dict['layer' + str(
-                                                                 layer) + '.0.downsample_bn.running_var'],
-                                                             affine=False)
+                                                                   running_m=bn_dict['layer' + str(
+                                                                       layer) + '.0.downsample_bn.running_mean'],
+                                                                   running_v=bn_dict['layer' + str(
+                                                                       layer) + '.0.downsample_bn.running_var'],
+                                                                   affine=False)
                 self.downsample_bnt = utils.batch_norm.BatchNorm2d(num_features=planes * self.expansion,
-                                                             running_m=bn_dict['layer' + str(
-                                                                 layer) + '.0.downsample_bn.running_mean'],
-                                                             running_v=bn_dict['layer' + str(
-                                                                 layer) + '.0.downsample_bn.running_var'],
-                                                             affine=False)
+                                                                   running_m=bn_dict['layer' + str(
+                                                                       layer) + '.0.downsample_bn.running_mean'],
+                                                                   running_v=bn_dict['layer' + str(
+                                                                       layer) + '.0.downsample_bn.running_var'],
+                                                                   affine=False)
                 self.downsample_bnt_aug = utils.batch_norm.BatchNorm2d(num_features=planes * self.expansion,
-                                                                 running_m=bn_dict['layer' + str(
-                                                                     layer) + '.0.downsample_bn.running_mean'],
-                                                                 running_v=bn_dict['layer' + str(
-                                                                     layer) + '.0.downsample_bn.running_var'],
-                                                                 affine=False)
+                                                                       running_m=bn_dict['layer' + str(
+                                                                           layer) + '.0.downsample_bn.running_mean'],
+                                                                       running_v=bn_dict['layer' + str(
+                                                                           layer) + '.0.downsample_bn.running_var'],
+                                                                       affine=False)
                 self.downsample_gamma = nn.Parameter(
                     bn_dict['layer' + str(layer) + '.0.downsample_bn.weight'].view(-1, 1, 1))
                 self.downsample_beta = nn.Parameter(
@@ -326,30 +331,54 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers, state_dict, num_classes=65, zero_init_residual=False, group_size=4):
+    def __init__(self, block, layers, state_dict, num_classes=65, zero_init_residual=False, group_size=4, rt=False):
         super(ResNet, self).__init__()
         self.inplanes = 64
-        self.bn_dict = compute_bn_stats(state_dict)
+        if rt:
+            self.bn_dict = state_dict
+        else:
+            self.bn_dict = compute_bn_stats(state_dict)
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7,
                                stride=2, padding=3, bias=False)
-        self.bns1 = whitening_scale_shift(planes=64,
-                                          group_size=group_size,
-                                          running_mean=self.bn_dict['bn1.wh.running_mean'],
-                                          running_variance=self.bn_dict['bn1.wh.running_variance'],
-                                          affine=False)
-        self.bnt1 = whitening_scale_shift(planes=64,
-                                          group_size=group_size,
-                                          running_mean=self.bn_dict['bn1.wh.running_mean'],
-                                          running_variance=self.bn_dict['bn1.wh.running_variance'],
-                                          affine=False)
-        self.bnt1_aug = whitening_scale_shift(planes=64,
+
+        if rt:
+            self.bns1 = whitening_scale_shift(planes=64,
+                                              group_size=group_size,
+                                              running_mean=self.bn_dict['bns1.wh.running_mean'],
+                                              running_variance=self.bn_dict['bns1.wh.running_variance'],
+                                              affine=False)
+            self.bnt1 = whitening_scale_shift(planes=64,
+                                              group_size=group_size,
+                                              running_mean=self.bn_dict['bnt1.wh.running_mean'],
+                                              running_variance=self.bn_dict['bnt1.wh.running_variance'],
+                                              affine=False)
+            self.bnt1_aug = whitening_scale_shift(planes=64,
+                                                  group_size=group_size,
+                                                  running_mean=self.bn_dict['bnt1.wh.running_mean'],
+                                                  running_variance=self.bn_dict['bnt1.wh.running_variance'],
+                                                  affine=False)
+            self.gamma1 = nn.Parameter(self.bn_dict['gamma1'])
+            self.beta1 = nn.Parameter(self.bn_dict['beta1'])
+
+        else:
+            self.bns1 = whitening_scale_shift(planes=64,
                                               group_size=group_size,
                                               running_mean=self.bn_dict['bn1.wh.running_mean'],
                                               running_variance=self.bn_dict['bn1.wh.running_variance'],
                                               affine=False)
-        self.gamma1 = nn.Parameter(self.bn_dict['bn1.gamma'])
-        self.beta1 = nn.Parameter(self.bn_dict['bn1.beta'])
+            self.bnt1 = whitening_scale_shift(planes=64,
+                                              group_size=group_size,
+                                              running_mean=self.bn_dict['bn1.wh.running_mean'],
+                                              running_variance=self.bn_dict['bn1.wh.running_variance'],
+                                              affine=False)
+            self.bnt1_aug = whitening_scale_shift(planes=64,
+                                                  group_size=group_size,
+                                                  running_mean=self.bn_dict['bn1.wh.running_mean'],
+                                                  running_variance=self.bn_dict['bn1.wh.running_variance'],
+                                                  affine=False)
+            self.gamma1 = nn.Parameter(self.bn_dict['bn1.gamma'])
+            self.beta1 = nn.Parameter(self.bn_dict['bn1.beta'])
 
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
